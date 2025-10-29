@@ -35,7 +35,7 @@ class Item(BaseModel):
     Monetary: float
     CustomerLifetimeDays: float
     
-class BatchREquest(BaseModel):
+class BatchRequest(BaseModel):
     data: List[Item]
     
 
