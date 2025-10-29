@@ -4,7 +4,8 @@ import numpy as np
 import os
 import logging
 from fastapi.middleware.cors import CORSMiddleware
-
+from pydantic import BaseModel
+from typing import List
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 LOGGER = logging.getLogger("churn_api")
@@ -29,6 +30,17 @@ model = None
 threshold = 0.67
 
 
+class Item(BaseModel):
+    Frequency: float 
+    Monetary: float
+    CustomerLifetimeDays: float
+    
+class BatchREquest(BaseModel):
+    data: List[Item]
+    
+
+
+
 def load_threshold(path: str) -> float:
     try:
         with open(path, 'r', encoding='utf-8') as f:
@@ -40,6 +52,10 @@ def load_threshold(path: str) -> float:
     except Exception as e:
         LOGGER.warning("Threshold load failed (%s). Using default 0.67", e)
         return 0.67
+
+
+
+
 
 
 
@@ -97,9 +113,9 @@ def predict(data: dict):
         
         
         return {
-            'predicted_class': int(y[0]),
+            #'predicted_class': int(y[0]),
             'churn_probability': proba,
-            'is_churn': is_churn
+            #'is_churn': is_churn
             }
     
     except KeyError as ke:
@@ -110,7 +126,16 @@ def predict(data: dict):
         
         
     
-    
+@app.post("/predict-batch")
+def predict_batch(payload: BatchRequest):
+    try:
+        X = np.array([[it.Frequency, it.Monetary, it.CustomerLifetimeDays] for it in payload.data], dtype=float)
+        y = model.predict(X)
+        prob = model.predict_proba(X)[:, 1]
+        return [{"predicted_class": int(c), "churn_probability": float(p), "is_churn": bool(p >= threshold)}
+                for c, p in zip(y, prob)]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 
